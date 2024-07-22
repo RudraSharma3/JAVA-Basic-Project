@@ -1,0 +1,368 @@
+import java.sql.*;
+import java.util.*;
+
+// Custom exception class for laundry item-related exceptions
+class LaundryItemException extends Exception {
+    public LaundryItemException(String message) {
+        super(message);
+    }
+}
+
+// Interface for customer details
+interface customer_Details {
+    public void customer_details();
+}
+
+// Parent class for orders
+class order {
+    // Method to display order summary
+    public void order_sumarry() {
+        System.out.println("No order yet..!!");
+        System.out.println();
+    }
+}
+
+// Class representing a laundry item, extends from order
+class LaundryItem extends order {
+    // Fields for laundry item details
+    public int itemId;
+    public String itemcategory;
+    public int itemquantity;
+
+    // Map to store prices for different item categories
+    private static Map<String, Double> itemPrices = new HashMap<>();
+    static {
+        // Set prices for each material/category
+        itemPrices.put("shirt", 5.0);
+        itemPrices.put("pants", 7.0);
+        itemPrices.put("jacket", 10.0);
+        itemPrices.put("shorts", 10.0);
+        itemPrices.put("t-shirt", 10.0);
+        itemPrices.put("jeans", 10.0);
+        // Add more categories and prices as needed
+    }
+
+    // Constructor for LaundryItem, throws an exception for invalid quantity
+    public LaundryItem(int itemId, String itemcategory, int itemquantity) throws LaundryItemException {
+        this.itemId = itemId;
+        this.itemcategory = itemcategory;
+        this.itemquantity = itemquantity <= 0 ? 1 : itemquantity;
+        if (itemquantity < 0) {
+            throw new LaundryItemException("Item quantity cannot be negative..!!" + "\nRe-Write the item quantity carefully..!!");
+        }
+    }
+
+    // Method to display order summary for a laundry item
+    public void order_sumarry() {
+        System.out.println("Order I'D : " + itemId + "\nOrder type : " + itemcategory
+                + "\nOrder price : " + itemPrices.get(itemcategory) + "\nOrder Quantity : " + itemquantity);
+        System.out.println();
+    }
+
+    // Method to calculate the total price for a laundry item
+    public double calculatePrice() {
+        Double price = itemPrices.get(itemcategory);
+
+        // Check if price is not null before invoking doubleValue()
+        if (price != null) {
+            return price * itemquantity;
+        } else {
+            // Handle the case where price is null, return a default value (0 in this case)
+            System.err.println("Warning: Unknown item category '" + itemcategory + "'. Setting price to 0.");
+            return 0.0;
+        }
+    }
+
+    // Inner class representing a discount for a laundry item
+    class Discount {
+        private static final double DISCOUNT_RATE = 0.1; // 10% discount rate
+
+        // Method to calculate the discount amount
+        public double calculateDiscount(double totalAmount) {
+            return totalAmount * DISCOUNT_RATE;
+        }
+    }
+}
+
+// Class representing a customer, implements customer details interface
+class Customer implements customer_Details {
+    // JDBC URL, username, and password for MySQL connection
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/java_project";
+    private static final String USER = "root";
+    private static final String PASSWORD = "Naga93511!?";
+
+    // Fields for customer details
+    public int customerId;
+    public String customerName;
+    public String phoneNumber;
+    public String address;
+    public double totalAmount;
+    public List<LaundryItem> basket;
+    public List<String> feedbackList;
+
+    // Constructor for Customer class
+    public Customer(int customerId, String customerName, String phoneNumber, String address) {
+        this.customerId = customerId;
+        this.customerName = customerName;
+        this.phoneNumber = phoneNumber;
+        this.address = address;
+        this.totalAmount = 0.0;
+        this.basket = new ArrayList<>();
+        feedbackList = new ArrayList<>();
+    }
+
+    // Method to display customer details
+    public void customer_details() {
+        System.out.println("Customer I'D : " + customerId + "\nCustomer Name :" + customerName
+                + "\nCustomer phone number :" + phoneNumber + "\nCustomer Address : " + address);
+        System.out.println();
+    }
+
+    // Method to add a laundry item to the customer's basket
+    public void addItemToBasket(LaundryItem item) {
+        System.out.println("Added item to the basket : " + item.itemcategory);
+        basket.add(item);
+        totalAmount += item.calculatePrice();
+        System.out.println();
+    }
+
+    // Method to view the customer's basket
+    public void viewBasket() {
+        if (basket.isEmpty()) {
+            System.out.println("Customer's basket is empty..!!");
+            System.out.println();
+        } else {
+            System.out.println("Customer's Basket:");
+            for (LaundryItem item : basket) {
+                System.out.println("Item: " + item.itemcategory + ", Quantity: " + item.itemquantity);
+            }
+        }
+        System.out.println();
+    }
+
+    // Method to calculate the total price of items in the basket
+    public double checkout() {
+        return totalAmount;
+    }
+
+    // Method to provide feedback
+    public void provideFeedback(String feedback) {
+        feedbackList.add(feedback);
+        System.out.println("Thank you for your feedback..!!");
+    }
+
+    // Method to view customer feedback
+    public void viewFeedback() {
+        if (feedbackList.isEmpty()) {
+            System.out.println("No feedback available..!!");
+        } else {
+            System.out.println("Customer Feedback :");
+            for (String feedback : feedbackList) {
+                System.out.println(feedback);
+            }
+        }
+        System.out.println();
+    }
+
+    // Method to insert customer details into the database
+    public void insertIntoDatabase() {
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, USER, PASSWORD)) {
+            String query = "INSERT INTO CustomerDetails (customerId, customerName, phoneNumber, address, totalAmount) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                preparedStatement.setInt(1, customerId);
+                preparedStatement.setString(2, customerName);
+                preparedStatement.setString(3, phoneNumber);
+                preparedStatement.setString(4, address);
+                preparedStatement.setDouble(5, totalAmount);
+
+                preparedStatement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.err.println("Failed to insert customer details into the database.");
+        }
+    }
+}
+
+// Main class representing the Laundry Management App, extends from order
+class LaundryManagementApp extends order {
+    // Static block to initialize and print welcome messages
+    static {
+        System.out.println();
+        System.out.println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*");
+        System.out.println("!!..Welcome to.." + "NAGA's LAUNDARY SERVICES..!!");
+        System.out.println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*");
+        System.out.println();
+    }
+
+    // JDBC URL, username, and password for MySQL connection
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/java_project";
+    private static final String USER = "root";
+    private static final String PASSWORD = "Naga93511!?";
+
+    // Static block to check the database connection
+    static {
+        try {
+            DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
+            System.out.println("Connected to the database!");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to connect to the database!");
+        }
+    }
+
+    // Method to display order summary for the app
+    public void order_sumarry() {
+        super.order_sumarry();
+        System.out.println("Ordering..");
+    }
+
+    // Main method representing the entry point of the application
+    public static void main(String[] args) throws LaundryItemException {
+        try {
+            // Scanner for user input
+            Scanner scan = new Scanner(System.in);
+            
+            // Get customer name
+            System.out.print("Enter your name : ");
+            String str = scan.nextLine();
+            System.out.println();
+
+            // Create an instance of the LaundryManagementApp
+            LaundryManagementApp lma = new LaundryManagementApp();
+
+            // Display order summary
+            System.out.print("Order summary : ");
+            System.out.println();
+            lma.order_sumarry();
+
+            // Get customer details
+            System.out.println("Enter your details..!! ");
+            String xx;
+            System.out.print("Mobile : ");
+            xx = scan.nextLine();
+            System.out.print("Address : ");
+            String z;
+            z = scan.nextLine();
+            int a;
+            System.out.print("Enter customer id : ");
+            a = scan.nextInt();
+
+            // Create a Customer object with the provided details
+            Customer c1 = new Customer(a, str, xx, z);
+
+            // Flag to control adding more items
+            boolean addMoreItems = true;
+            LaundryItem l = null; // Initialize the variable outside the loop
+            int i = 1;
+            
+            // Loop to add items to the customer's basket
+            while (addMoreItems) {
+                i++;
+                try {
+                    System.out.print("Enter item Name : ");
+                    String itemcategory = scan.next();
+                    System.out.print("Enter item Quantity : ");
+                    int itemquantity = scan.nextInt();
+                    l = new LaundryItem(i, itemcategory, itemquantity);
+                    c1.addItemToBasket(l);
+                } catch (LaundryItemException e) {
+                    System.err.println("LaundryItemException: " + e.getMessage());
+                    System.out.println();
+                }
+                System.out.print("Add more items ? (true/false) : ");
+                addMoreItems = scan.nextBoolean();
+                scan.nextLine();
+                System.out.println();
+            }
+
+            // Display customer details if requested
+            System.out.print("Want costumer details ? true/false : ");
+            boolean x;
+            x = scan.nextBoolean();
+            System.out.println();
+            if (x) {
+                c1.customer_details();
+            } else if (!x) {
+                System.out.println("OK..!!");
+                System.out.println();
+            } else {
+                System.out.println("SORRY..!! invalid entry");
+                System.out.println();
+            }
+
+            // Display order summary if requested
+            System.out.print("Want order summary ? true/false : ");
+            boolean y;
+            y = scan.nextBoolean();
+            if (y) {
+                l.order_sumarry();
+            } else if (!y) {
+                System.out.println("OK..!!");
+                System.out.println();
+            } else {
+                System.out.println("SORRY..!!  Invalid Entry..!!");
+                System.out.println();
+            }
+
+            // Provide feedback if requested
+            System.out.print("Want to provide feedback ? true/false: ");
+            boolean feedbackOption = scan.nextBoolean();
+            scan.nextLine();
+            if (feedbackOption) {
+                System.out.print("Please provide your feedback : ");
+                String feedback = scan.nextLine();
+                c1.provideFeedback(feedback);
+                System.out.println();
+            }
+
+            // View and calculate the total price of the items in the basket
+            c1.viewBasket();
+            double total = c1.checkout();
+
+            // Use the inner class to calculate and apply discount
+            LaundryItem.Discount discountCalculator = l.new Discount();
+            double discount = discountCalculator.calculateDiscount(total);
+
+            // Display total price, discount, and final price after discount
+            System.out.println("Total Price : " + total + " $");
+            System.out.println();
+            System.out.println("Discount : " + discount + " $");
+            System.out.println("Final Price after Discount : " + (total - discount) + " $");
+            System.out.println();
+
+            // View customer feedback if requested
+            System.out.print("View customer feedback ? true/false: ");
+            boolean viewFeedback = scan.nextBoolean();
+            if (viewFeedback) {
+                c1.viewFeedback();
+            }
+
+            // Display closing messages
+            System.out.println();
+            System.out.println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*");
+            System.out.println("      !!..THANK YOU.." + "SEE YOU SOON..!!");
+            System.out.println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*");
+            System.out.println();
+
+            // Insert customer details into the database
+            c1.insertIntoDatabase();
+
+            // Close the scanner
+            scan.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+-- Active: 1701818947423@@127.0.0.1@3306@java_project
+CREATE TABLE `customerdetails` (
+  `customerId` int NOT NULL,
+  `customerName` varchar(255) DEFAULT NULL,
+  `phoneNumber` varchar(20) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `totalAmount` double DEFAULT NULL,
+  PRIMARY KEY (`customerId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
